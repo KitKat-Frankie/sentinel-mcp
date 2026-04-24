@@ -1,0 +1,15 @@
+{
+  "name": "sentinel-mcp",
+  "version": "1.0.0",
+  "description": "Self-hosted security testing MCP server - Bolt alternative with no credits",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:stdio": "node src/stdio.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "express": "^4.21.0",
+    "zod": "^3.23.0"
+  }
+}
