@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  sentinel:
+    build: .
+    container_name: sentinel
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - HOST=0.0.0.0
+      # Set a token for auth (optional but recommended)
+      # - MCP_AUTH_TOKEN=your-secret-token-here
+    cap_add:
+      - NET_RAW      # Required for nmap SYN scans, masscan
+      - NET_ADMIN    # Required for raw socket operations
+    volumes:
+      - sentinel-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  sentinel-data:
