@@ -5,9 +5,9 @@ services:
     build: .
     container_name: sentinel
     ports:
-      - "3001:3001"
+      - "3002:3002"
     environment:
-      - PORT=3001
+      - PORT=3002
       - HOST=0.0.0.0
       # Set a token for auth (optional but recommended)
       # - MCP_AUTH_TOKEN=your-secret-token-here
@@ -18,7 +18,7 @@ services:
       - sentinel-data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
       interval: 30s
       timeout: 5s
       retries: 3
