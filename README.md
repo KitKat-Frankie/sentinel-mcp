@@ -4,24 +4,65 @@
 
 A Bolt-compatible alternative that bundles 30+ penetration testing tools in a single Docker container, exposed as MCP tools you can call directly from Claude Desktop, Claude Code, or any MCP client.
 
-## Quick Start
+## Prerequisites
 
-### 1. Build and Run
+- **Docker Desktop** installed and running ([download](https://www.docker.com/products/docker-desktop/))
+- **Git** installed ([download](https://git-scm.com/downloads))
+- At least **4GB RAM** available for Docker (the first build compiles Go tools)
+- Port **3001** available
 
-```bash
+## Quick Start (Windows - Command Prompt)
+
+### 1. Clone and Build
+
+Open **Command Prompt** and run:
+
+```cmd
+git clone https://github.com/KitKat-Frankie/sentinel-mcp.git
+cd sentinel-mcp
 docker compose up -d --build
+```
 
-# Or manually:
+The first build takes about 10-15 minutes (compiles Go binaries, installs Python/Ruby packages, downloads wordlists). After that, starts are instant.
+
+If you prefer to build and run manually:
+
+```cmd
 docker build -t sentinel .
-docker run -d --name sentinel -p 3001:3001 \
-  --cap-add NET_RAW --cap-add NET_ADMIN \
-  -v sentinel-data:/data \
+docker run -d --name sentinel -p 3001:3001 ^
+  --cap-add NET_RAW --cap-add NET_ADMIN ^
+  -v sentinel-data:/data ^
   sentinel
 ```
 
-### 2. Connect to Claude Desktop
+> Note: In Command Prompt, use `^` for line continuation (not `\`).
 
-Add to your Claude Desktop MCP config:
+### 2. Verify It Works
+
+```cmd
+curl http://localhost:3001/health
+curl http://localhost:3001/tools
+```
+
+You should see `{"status":"ok","tools":32}` from the health check.
+
+If `curl` is not available, open your browser and navigate to `http://localhost:3001/health`.
+
+### 3. Connect to Claude Desktop
+
+Open your Claude Desktop MCP config file. On Windows it is located at:
+
+```
+%APPDATA%\Claude\claude_desktop_config.json
+```
+
+You can open it directly from Command Prompt:
+
+```cmd
+notepad %APPDATA%\Claude\claude_desktop_config.json
+```
+
+Add the following (or merge into your existing config):
 
 ```json
 {
@@ -33,7 +74,7 @@ Add to your Claude Desktop MCP config:
 }
 ```
 
-With auth token:
+With optional auth token:
 
 ```json
 {
@@ -48,7 +89,11 @@ With auth token:
 }
 ```
 
-### 3. Connect to Claude Code (stdio)
+Then restart Claude Desktop for the changes to take effect.
+
+### 4. Connect to Claude Code (stdio)
+
+If using Claude Code, add to your MCP settings:
 
 ```json
 {
@@ -61,11 +106,26 @@ With auth token:
 }
 ```
 
-### 4. Verify
+## Common Docker Commands (Windows CMD)
 
-```bash
-curl http://localhost:3001/health
-curl http://localhost:3001/tools
+```cmd
+:: Check container status
+docker ps
+
+:: View live logs
+docker logs -f sentinel
+
+:: Stop the server
+docker compose down
+
+:: Restart after changes
+docker compose up -d --build
+
+:: Enter the container shell (to test tools manually)
+docker exec -it sentinel bash
+
+:: Check disk usage
+docker system df
 ```
 
 ## Tools (30+)
@@ -162,7 +222,34 @@ curl http://localhost:3001/tools
 | `HOST` | `0.0.0.0` | Listen address |
 | `MCP_AUTH_TOKEN` | _(empty)_ | Bearer token for auth (optional) |
 
+To set environment variables, uncomment the `MCP_AUTH_TOKEN` line in `docker-compose.yml`.
+
 Docker capabilities `NET_RAW` and `NET_ADMIN` are required for nmap and masscan.
+
+### Adding Custom Wordlists
+
+Add a volume mount in `docker-compose.yml`:
+
+```yaml
+volumes:
+  - sentinel-data:/data
+  - C:\Users\frank\wordlists:/usr/share/wordlists/custom
+```
+
+## Troubleshooting (Windows)
+
+**Docker Desktop not running:** You will see `error during connect: This error may indicate that the docker daemon is not running`. Open Docker Desktop and wait for the engine to start (green icon in system tray).
+
+**Port 3001 already in use:** Change the port in `docker-compose.yml` from `"3001:3001"` to `"3002:3001"` and update your MCP config URL to use port 3002.
+
+**Build fails with network error:** Make sure Docker Desktop has network access. Check Settings > Resources > Network in Docker Desktop.
+
+**Container starts but Claude does not see tools:** Restart Claude Desktop after editing the config file. Check that the config JSON is valid (no trailing commas).
+
+**View container logs for errors:**
+```cmd
+docker logs sentinel
+```
 
 ## Bolt vs Sentinel
 
