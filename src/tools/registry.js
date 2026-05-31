@@ -324,6 +324,23 @@ const arjun = shellTool(
   })
 );
 
+const linkfinder = shellTool(
+  "linkfinder",
+  "Extract endpoints, API paths, and secrets from JavaScript files. Supports single JS file URLs or full domain crawl mode to process all JS files automatically.",
+  "Web Discovery",
+  {
+    input: z.string().describe("URL of a JS file (e.g. https://target.com/app.js) or target domain for crawl mode"),
+    crawl: z.boolean().optional().describe("Crawl the target domain and process all discovered JS files (-d flag)"),
+    output: z.string().optional().describe("Output format: 'cli' for terminal output (default), or a file path to save HTML report"),
+    timeout: z.number().optional().describe("Timeout in seconds"),
+  },
+  (args) => {
+    const cmdArgs = ["/opt/linkfinder/linkfinder.py", "-i", args.input, "-o", args.output || "cli"];
+    if (args.crawl) cmdArgs.push("-d");
+    return { cmd: "python3", cmdArgs };
+  }
+);
+
 // VULNERABILITY SCANNING
 
 const nuclei = shellTool(
@@ -595,7 +612,7 @@ export const ALL_TOOLS = [
   subfinder, assetfinder, amass, crtsh, waybackurls,
   dnsx, alterx, shuffledns,
   nmap, masscan, rustscan,
-  httpx, katana, ffuf, gobuster, arjun,
+  httpx, katana, ffuf, gobuster, arjun, linkfinder,
   nuclei, nuclei_update, wpscan, sslscan, http_headers,
   sqlmap, commix, smuggler,
   cero, scoutsuite,

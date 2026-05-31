@@ -54,6 +54,12 @@ RUN git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git /opt/sqlmap
 RUN git clone --depth 1 https://github.com/commixproject/commix.git /opt/commix
 RUN git clone --depth 1 https://github.com/defparam/smuggler.git /opt/smuggler
 
+# LinkFinder - JavaScript endpoint and secret extraction
+RUN git clone --depth 1 https://github.com/GerbenJavado/LinkFinder.git /opt/linkfinder && \
+    pip install --no-cache-dir -r /opt/linkfinder/requirements.txt && \
+    chmod +x /opt/linkfinder/linkfinder.py && \
+    ln -sf /opt/linkfinder/linkfinder.py /usr/local/bin/linkfinder
+
 # Ruby tools
 RUN gem install wpscan --no-doc 2>/dev/null || echo "wpscan install skipped"
 
