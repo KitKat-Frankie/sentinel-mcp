@@ -49,8 +49,8 @@ RUN go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest 
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install Python tools via pip (arjun, scoutsuite, ghauri all on PyPI)
-RUN pip install --no-cache-dir arjun scoutsuite ghauri
+# arjun and scoutsuite are on PyPI
+RUN pip install --no-cache-dir arjun scoutsuite
 
 RUN git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git /opt/sqlmap
 RUN git clone --depth 1 https://github.com/commixproject/commix.git /opt/commix
@@ -71,6 +71,12 @@ RUN curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-n
       | tar -xz -C /usr/local/bin feroxbuster \
     ) && \
     chmod +x /usr/local/bin/feroxbuster
+
+# ghauri - advanced SQLi tool (not on PyPI, install via setup.py)
+# setup.py registers the 'ghauri' console_scripts entrypoint into the venv
+RUN git clone --depth 1 https://github.com/r0oth3x49/ghauri.git /opt/ghauri && \
+    pip install --no-cache-dir /opt/ghauri && \
+    ln -sf /opt/venv/bin/ghauri /usr/local/bin/ghauri
 
 # nosqlmap - NoSQL injection (MongoDB, CouchDB, Redis, Cassandra)
 # Note: nosqlmap is interactive; sentinel wraps it with targeted curl payloads
@@ -126,8 +132,7 @@ RUN nuclei -update-templates -silent 2>/dev/null || true
 RUN ln -sf /opt/sqlmap/sqlmap.py /usr/local/bin/sqlmap && \
     ln -sf /opt/commix/commix.py /usr/local/bin/commix-bin && \
     ln -sf /opt/venv/bin/arjun /usr/local/bin/arjun && \
-    ln -sf /opt/venv/bin/scout /usr/local/bin/scout && \
-    ln -sf /opt/venv/bin/ghauri /usr/local/bin/ghauri
+    ln -sf /opt/venv/bin/scout /usr/local/bin/scout
 
 # Application
 WORKDIR /app
