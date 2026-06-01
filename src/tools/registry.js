@@ -16,7 +16,9 @@ function shellTool(name, description, category, schema, buildCmd) {
   };
 }
 
+// ─────────────────────────────────────────────
 // RECON & OSINT
+// ─────────────────────────────────────────────
 
 const subfinder = shellTool(
   "subfinder",
@@ -104,7 +106,9 @@ const waybackurls = shellTool(
   }
 );
 
+// ─────────────────────────────────────────────
 // DNS
+// ─────────────────────────────────────────────
 
 const dnsx = shellTool(
   "dnsx",
@@ -162,7 +166,9 @@ const shuffledns = shellTool(
   })
 );
 
+// ─────────────────────────────────────────────
 // PORT SCANNING
+// ─────────────────────────────────────────────
 
 const nmap = shellTool(
   "nmap",
@@ -224,7 +230,9 @@ const rustscan = shellTool(
   }
 );
 
+// ─────────────────────────────────────────────
 // WEB DISCOVERY
+// ─────────────────────────────────────────────
 
 const httpx = shellTool(
   "httpx",
@@ -270,21 +278,51 @@ const katana = shellTool(
 
 const ffuf = shellTool(
   "ffuf",
-  "Directory, file, and virtual host fuzzing with flexible wordlist support",
+  "Directory, file, parameter, and virtual host fuzzing with flexible wordlist support",
   "Web Discovery",
   {
-    url: z.string().describe("Target URL with FUZZ keyword (e.g. https://target.com/FUZZ)"),
+    url: z.string().describe("Target URL with FUZZ keyword (e.g. https://target.com/FUZZ or https://target.com/api?FUZZ=1)"),
     wordlist: z.string().optional().default("/usr/share/wordlists/web/common.txt").describe("Wordlist path"),
-    method: z.enum(["GET", "POST", "PUT", "DELETE"]).optional().default("GET").describe("HTTP method"),
-    filter_code: z.string().optional().describe("Filter by status codes (e.g. '404,403')"),
-    extensions: z.string().optional().describe("File extensions to append (e.g. '.php,.html')"),
+    method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]).optional().default("GET").describe("HTTP method"),
+    headers: z.string().optional().describe("Custom headers (e.g. 'Authorization: Bearer TOKEN')"),
+    data: z.string().optional().describe("POST body data with FUZZ keyword"),
+    filter_code: z.string().optional().describe("Filter OUT these status codes (e.g. '404,403')"),
+    match_code: z.string().optional().describe("Only show these status codes (e.g. '200,201,302')"),
+    extensions: z.string().optional().describe("File extensions to append (e.g. '.php,.html,.json')"),
+    rate: z.number().optional().describe("Rate limit in requests per second"),
+    threads: z.number().optional().default(40).describe("Number of threads"),
     timeout: z.number().optional().describe("Timeout in seconds"),
   },
   (args) => {
-    const cmdArgs = ["-u", args.url, "-w", args.wordlist, "-X", args.method];
+    const cmdArgs = ["-u", args.url, "-w", args.wordlist, "-X", args.method, "-t", String(args.threads)];
+    if (args.headers) cmdArgs.push("-H", args.headers);
+    if (args.data) cmdArgs.push("-d", args.data);
     if (args.filter_code) cmdArgs.push("-fc", args.filter_code);
+    if (args.match_code) cmdArgs.push("-mc", args.match_code);
     if (args.extensions) cmdArgs.push("-e", args.extensions);
+    if (args.rate) cmdArgs.push("-rate", String(args.rate));
     return { cmd: "ffuf", cmdArgs };
+  }
+);
+
+const feroxbuster = shellTool(
+  "feroxbuster",
+  "Fast, recursive content discovery with automatic depth crawling, filter tuning, and smart false-positive detection",
+  "Web Discovery",
+  {
+    url: z.string().describe("Target URL (e.g. https://target.com)"),
+    wordlist: z.string().optional().default("/usr/share/wordlists/web/directory-list-2.3-medium.txt").describe("Wordlist path"),
+    depth: z.number().optional().default(3).describe("Recursion depth (0 = unlimited)"),
+    extensions: z.string().optional().describe("Comma-separated extensions to search (e.g. 'php,html,json,js')"),
+    filter_status: z.string().optional().describe("Filter OUT these status codes (e.g. '404,403,302')"),
+    threads: z.number().optional().default(50).describe("Number of threads"),
+    timeout: z.number().optional().describe("Timeout in seconds"),
+  },
+  (args) => {
+    const cmdArgs = ["-u", args.url, "-w", args.wordlist, "-d", String(args.depth), "-t", String(args.threads), "--silent"];
+    if (args.extensions) cmdArgs.push("-x", args.extensions);
+    if (args.filter_status) cmdArgs.push("--filter-status", args.filter_status);
+    return { cmd: "feroxbuster", cmdArgs };
   }
 );
 
@@ -326,7 +364,7 @@ const arjun = shellTool(
 
 const linkfinder = shellTool(
   "linkfinder",
-  "Extract endpoints, API paths, and secrets from JavaScript files. Supports single JS file URLs or full domain crawl mode to process all JS files automatically.",
+  "Extract endpoints, API paths, and secrets from JavaScript files. Supports single JS file URLs or full domain crawl mode.",
   "Web Discovery",
   {
     input: z.string().describe("URL of a JS file (e.g. https://target.com/app.js) or target domain for crawl mode"),
@@ -341,7 +379,56 @@ const linkfinder = shellTool(
   }
 );
 
+const nikto = shellTool(
+  "nikto",
+  "Web server misconfiguration scanner — detects outdated software, dangerous files, insecure headers, and common vulnerabilities across 6700+ checks",
+  "Web Discovery",
+  {
+    target: z.string().describe("Target URL or host (e.g. https://target.com or target.com)"),
+    port: z.number().optional().describe("Target port (default: 80 or 443)"),
+    ssl: z.boolean().optional().describe("Force SSL/HTTPS"),
+    output: z.string().optional().describe("Output file path"),
+    timeout: z.number().optional().describe("Timeout in seconds"),
+  },
+  (args) => {
+    const cmdArgs = ["-h", args.target, "-nointeractive"];
+    if (args.port) cmdArgs.push("-p", String(args.port));
+    if (args.ssl) cmdArgs.push("-ssl");
+    if (args.output) cmdArgs.push("-o", args.output);
+    return { cmd: "nikto", cmdArgs };
+  }
+);
+
+// ─────────────────────────────────────────────
+// XSS SCANNING
+// ─────────────────────────────────────────────
+
+const dalfox = shellTool(
+  "dalfox",
+  "Fast parameter-based XSS scanner with blind XSS support, DOM analysis, and PoC generation. Covers reflected, stored, and DOM-based XSS.",
+  "XSS Scanning",
+  {
+    target: z.string().describe("Target URL with parameters (e.g. https://target.com/search?q=test)"),
+    mode: z.enum(["url", "pipe", "file", "sxss"]).optional().default("url").describe("Scan mode: url (single), pipe (stdin), file (list), sxss (stored XSS)"),
+    blind_xss: z.string().optional().describe("Blind XSS callback URL (e.g. https://your-xss-hunter.com)"),
+    cookie: z.string().optional().describe("Cookie header for authenticated scanning"),
+    headers: z.string().optional().describe("Custom headers"),
+    skip_bav: z.boolean().optional().describe("Skip BAV (Basic Analysis and Validation) for speed"),
+    timeout: z.number().optional().describe("Timeout in seconds"),
+  },
+  (args) => {
+    const cmdArgs = [args.mode, args.target, "--silence"];
+    if (args.blind_xss) cmdArgs.push("--blind", args.blind_xss);
+    if (args.cookie) cmdArgs.push("--cookie", args.cookie);
+    if (args.headers) cmdArgs.push("--header", args.headers);
+    if (args.skip_bav) cmdArgs.push("--skip-bav");
+    return { cmd: "dalfox", cmdArgs };
+  }
+);
+
+// ─────────────────────────────────────────────
 // VULNERABILITY SCANNING
+// ─────────────────────────────────────────────
 
 const nuclei = shellTool(
   "nuclei",
@@ -351,7 +438,7 @@ const nuclei = shellTool(
     target: z.string().describe("Target URL or file with URLs"),
     templates: z.string().optional().describe("Specific template or directory"),
     severity: z.string().optional().describe("Filter by severity (e.g. 'critical,high')"),
-    tags: z.string().optional().describe("Filter by tags (e.g. 'cve,rce')"),
+    tags: z.string().optional().describe("Filter by tags (e.g. 'cve,rce,misconfig,takeover')"),
     rate_limit: z.number().optional().default(150).describe("Max requests per second"),
     timeout: z.number().optional().describe("Timeout in seconds"),
   },
@@ -418,11 +505,13 @@ const http_headers = {
   },
 };
 
-// EXPLOITATION
+// ─────────────────────────────────────────────
+// EXPLOITATION — SQL & NoSQL Injection
+// ─────────────────────────────────────────────
 
 const sqlmap = shellTool(
   "sqlmap",
-  "Automated SQL injection detection and exploitation with database enumeration",
+  "Automated SQL injection detection and exploitation with database enumeration (MySQL, PostgreSQL, MSSQL, Oracle, SQLite)",
   "Exploitation",
   {
     url: z.string().describe("Target URL with parameter (e.g. http://target.com/page?id=1)"),
@@ -439,6 +528,46 @@ const sqlmap = shellTool(
     if (args.batch) cmdArgs.push("--batch");
     if (args.dbs) cmdArgs.push("--dbs");
     return { cmd: "sqlmap", cmdArgs };
+  }
+);
+
+const ghauri = shellTool(
+  "ghauri",
+  "Advanced SQL injection detection and exploitation — sqlmap alternative with better WAF bypass, error-based, time-based, boolean-based, and UNION-based techniques",
+  "Exploitation",
+  {
+    url: z.string().describe("Target URL with parameter (e.g. http://target.com/page?id=1)"),
+    data: z.string().optional().describe("POST data string"),
+    level: z.number().optional().default(1).describe("Level of tests (1-3)"),
+    batch: z.boolean().optional().default(true).describe("Non-interactive mode"),
+    dbs: z.boolean().optional().describe("Enumerate databases"),
+    dbms: z.string().optional().describe("Force DBMS type (e.g. mysql, postgresql, mssql)"),
+    timeout: z.number().optional().describe("Timeout in seconds"),
+  },
+  (args) => {
+    const cmdArgs = ["-u", args.url, "--level", String(args.level)];
+    if (args.data) cmdArgs.push("--data", args.data);
+    if (args.batch) cmdArgs.push("--batch");
+    if (args.dbs) cmdArgs.push("--dbs");
+    if (args.dbms) cmdArgs.push("--dbms", args.dbms);
+    return { cmd: "ghauri", cmdArgs };
+  }
+);
+
+const nosqlmap = shellTool(
+  "nosqlmap",
+  "NoSQL injection testing for MongoDB, CouchDB, Redis, and Cassandra. Tests authentication bypass, data extraction, and denial of service via NoSQL injection.",
+  "Exploitation",
+  {
+    url: z.string().describe("Target URL with parameter to test (e.g. http://target.com/login)"),
+    db_type: z.enum(["mongodb", "couchdb", "redis", "cassandra"]).optional().default("mongodb").describe("Target NoSQL database type"),
+    attack: z.enum(["auth_bypass", "extract", "dos"]).optional().default("auth_bypass").describe("Attack type: auth_bypass (login bypass), extract (data dump), dos (denial of service)"),
+    timeout: z.number().optional().describe("Timeout in seconds"),
+  },
+  (args) => {
+    // nosqlmap is interactive by default; run with --attack flag and pipe answers
+    const cmdArgs = ["/opt/nosqlmap/nosqlmap.py", "--attack", args.attack, "--url", args.url, "--dbtype", args.db_type];
+    return { cmd: "python3", cmdArgs };
   }
 );
 
@@ -475,7 +604,9 @@ const smuggler = shellTool(
   })
 );
 
+// ─────────────────────────────────────────────
 // TLS / CLOUD
+// ─────────────────────────────────────────────
 
 const cero = shellTool(
   "cero",
@@ -507,7 +638,9 @@ const scoutsuite = shellTool(
   }
 );
 
+// ─────────────────────────────────────────────
 // PASSWORD CRACKING
+// ─────────────────────────────────────────────
 
 const hydra = shellTool(
   "hydra",
@@ -515,7 +648,7 @@ const hydra = shellTool(
   "Password Cracking",
   {
     target: z.string().describe("Target host"),
-    service: z.string().describe("Service to attack (e.g. ssh, ftp, http-post-form)"),
+    service: z.string().describe("Service to attack (e.g. ssh, ftp, http-post-form, mongodb)"),
     username: z.string().optional().describe("Single username or username file path"),
     password_list: z.string().optional().default("/usr/share/wordlists/passwords/rockyou-50k.txt").describe("Password wordlist"),
     options: z.string().optional().describe("Additional options (e.g. form parameters)"),
@@ -569,7 +702,9 @@ const john = shellTool(
   }
 );
 
+// ─────────────────────────────────────────────
 // UTILITIES
+// ─────────────────────────────────────────────
 
 const run_command = {
   name: "run_command",
@@ -599,23 +734,36 @@ const wordlist_search = {
   description: "Search for wordlists by keyword or attack type",
   category: "Utilities",
   schema: {
-    keyword: z.string().describe("Keyword to search for (e.g. 'dns', 'passwords', 'web')"),
+    keyword: z.string().describe("Keyword to search for (e.g. 'dns', 'passwords', 'web', 'api')"),
   },
   execute: async (args) => {
     return execTool("sh", ["-c", `find /usr/share/wordlists -type f | grep -i "${args.keyword}"`], { timeout: 30 });
   },
 };
 
+// ─────────────────────────────────────────────
 // EXPORT ALL TOOLS
+// ─────────────────────────────────────────────
 
 export const ALL_TOOLS = [
+  // Recon & OSINT
   subfinder, assetfinder, amass, crtsh, waybackurls,
+  // DNS
   dnsx, alterx, shuffledns,
+  // Port Scanning
   nmap, masscan, rustscan,
-  httpx, katana, ffuf, gobuster, arjun, linkfinder,
+  // Web Discovery
+  httpx, katana, ffuf, feroxbuster, gobuster, arjun, linkfinder, nikto,
+  // XSS
+  dalfox,
+  // Vuln Scanning
   nuclei, nuclei_update, wpscan, sslscan, http_headers,
-  sqlmap, commix, smuggler,
+  // Exploitation
+  sqlmap, ghauri, nosqlmap, commix, smuggler,
+  // TLS / Cloud
   cero, scoutsuite,
+  // Password Cracking
   hydra, hashcat, john,
+  // Utilities
   run_command, wordlist_list, wordlist_search,
 ];

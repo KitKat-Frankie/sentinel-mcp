@@ -11,7 +11,7 @@ ENV NODE_ENV=production
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates git unzip wget jq \
     nmap masscan openssl socat dnsutils netcat-openbsd whois \
-    sslscan \
+    sslscan nikto \
     golang-go build-essential \
     python3 python3-pip python3-venv \
     ruby ruby-dev \
@@ -41,6 +41,7 @@ RUN go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest 
     go install -v github.com/tomnomnom/waybackurls@latest && \
     go install -v github.com/glebarez/cero@latest && \
     go install -v github.com/OJ/gobuster/v3@latest && \
+    go install -v github.com/hahwul/dalfox/v2@latest && \
     go install -v github.com/RustScan/RustScan@latest 2>/dev/null || true && \
     rm -rf /root/go/pkg /root/.cache/go-build
 
@@ -59,6 +60,23 @@ RUN git clone --depth 1 https://github.com/GerbenJavado/LinkFinder.git /opt/link
     pip install --no-cache-dir -r /opt/linkfinder/requirements.txt && \
     chmod +x /opt/linkfinder/linkfinder.py && \
     ln -sf /opt/linkfinder/linkfinder.py /usr/local/bin/linkfinder
+
+# feroxbuster - fast recursive content discovery
+RUN curl -sL https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-linux-feroxbuster.tar.gz \
+    | tar -xz -C /usr/local/bin/ feroxbuster && \
+    chmod +x /usr/local/bin/feroxbuster
+
+# ghauri - advanced SQL injection detection (sqlmap alternative)
+RUN git clone --depth 1 https://github.com/r0oth3x49/ghauri.git /opt/ghauri && \
+    pip install --no-cache-dir -r /opt/ghauri/requirements.txt && \
+    chmod +x /opt/ghauri/ghauri.py && \
+    ln -sf /opt/ghauri/ghauri.py /usr/local/bin/ghauri
+
+# nosqlmap - NoSQL injection (MongoDB, CouchDB, Redis, Cassandra)
+RUN git clone --depth 1 https://github.com/codingo/NoSQLMap.git /opt/nosqlmap && \
+    pip install --no-cache-dir -r /opt/nosqlmap/requirements.txt 2>/dev/null || true && \
+    chmod +x /opt/nosqlmap/nosqlmap.py && \
+    ln -sf /opt/nosqlmap/nosqlmap.py /usr/local/bin/nosqlmap
 
 # Ruby tools
 RUN gem install wpscan --no-doc 2>/dev/null || echo "wpscan install skipped"
@@ -85,7 +103,9 @@ RUN curl -sL -o /usr/share/wordlists/web/common.txt \
     curl -sL -o /usr/share/wordlists/web/directory-list-2.3-medium.txt \
     https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/directory-list-2.3-medium.txt && \
     curl -sL -o /usr/share/wordlists/web/raft-medium-files.txt \
-    https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/raft-medium-files.txt
+    https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/raft-medium-files.txt && \
+    curl -sL -o /usr/share/wordlists/web/api-endpoints.txt \
+    https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/Web-Content/api/api-endpoints.txt
 
 RUN curl -sL -o /usr/share/wordlists/dns/subdomains-top1million-5000.txt \
     https://raw.githubusercontent.com/danielmiessler/SecLists/master/Discovery/DNS/subdomains-top1million-5000.txt && \
