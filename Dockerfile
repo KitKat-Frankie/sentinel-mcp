@@ -49,7 +49,8 @@ RUN go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest 
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-RUN pip install --no-cache-dir arjun scoutsuite
+# Install Python tools via pip (arjun, scoutsuite, ghauri all on PyPI)
+RUN pip install --no-cache-dir arjun scoutsuite ghauri
 
 RUN git clone --depth 1 https://github.com/sqlmapproject/sqlmap.git /opt/sqlmap
 RUN git clone --depth 1 https://github.com/commixproject/commix.git /opt/commix
@@ -62,7 +63,6 @@ RUN git clone --depth 1 https://github.com/GerbenJavado/LinkFinder.git /opt/link
     ln -sf /opt/linkfinder/linkfinder.py /usr/local/bin/linkfinder
 
 # feroxbuster - fast recursive content discovery
-# Uses the official install script which handles arch detection and latest release
 RUN curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh \
     | bash -s /usr/local/bin 2>/dev/null || \
     ( \
@@ -72,14 +72,8 @@ RUN curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-n
     ) && \
     chmod +x /usr/local/bin/feroxbuster
 
-# ghauri - advanced SQL injection detection (sqlmap alternative)
-RUN git clone --depth 1 https://github.com/r0oth3x49/ghauri.git /opt/ghauri && \
-    pip install --no-cache-dir -r /opt/ghauri/requirements.txt && \
-    chmod +x /opt/ghauri/ghauri.py && \
-    ln -sf /opt/ghauri/ghauri.py /usr/local/bin/ghauri
-
 # nosqlmap - NoSQL injection (MongoDB, CouchDB, Redis, Cassandra)
-# Note: nosqlmap is interactive; use run_command for full sessions
+# Note: nosqlmap is interactive; sentinel wraps it with targeted curl payloads
 RUN git clone --depth 1 https://github.com/codingo/NoSQLMap.git /opt/nosqlmap && \
     pip install --no-cache-dir -r /opt/nosqlmap/requirements.txt 2>/dev/null || true && \
     chmod +x /opt/nosqlmap/nosqlmap.py && \
@@ -132,7 +126,8 @@ RUN nuclei -update-templates -silent 2>/dev/null || true
 RUN ln -sf /opt/sqlmap/sqlmap.py /usr/local/bin/sqlmap && \
     ln -sf /opt/commix/commix.py /usr/local/bin/commix-bin && \
     ln -sf /opt/venv/bin/arjun /usr/local/bin/arjun && \
-    ln -sf /opt/venv/bin/scout /usr/local/bin/scout
+    ln -sf /opt/venv/bin/scout /usr/local/bin/scout && \
+    ln -sf /opt/venv/bin/ghauri /usr/local/bin/ghauri
 
 # Application
 WORKDIR /app
