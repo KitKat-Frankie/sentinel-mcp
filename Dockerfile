@@ -62,8 +62,14 @@ RUN git clone --depth 1 https://github.com/GerbenJavado/LinkFinder.git /opt/link
     ln -sf /opt/linkfinder/linkfinder.py /usr/local/bin/linkfinder
 
 # feroxbuster - fast recursive content discovery
-RUN curl -sL https://github.com/epi052/feroxbuster/releases/latest/download/x86_64-linux-feroxbuster.tar.gz \
-    | tar -xz -C /usr/local/bin/ feroxbuster && \
+# Uses the official install script which handles arch detection and latest release
+RUN curl -sL https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh \
+    | bash -s /usr/local/bin 2>/dev/null || \
+    ( \
+      FEROX_VER=$(curl -s https://api.github.com/repos/epi052/feroxbuster/releases/latest | grep tag_name | cut -d'"' -f4) && \
+      curl -sL "https://github.com/epi052/feroxbuster/releases/download/${FEROX_VER}/x86_64-linux-feroxbuster.tar.gz" \
+      | tar -xz -C /usr/local/bin feroxbuster \
+    ) && \
     chmod +x /usr/local/bin/feroxbuster
 
 # ghauri - advanced SQL injection detection (sqlmap alternative)
@@ -73,6 +79,7 @@ RUN git clone --depth 1 https://github.com/r0oth3x49/ghauri.git /opt/ghauri && \
     ln -sf /opt/ghauri/ghauri.py /usr/local/bin/ghauri
 
 # nosqlmap - NoSQL injection (MongoDB, CouchDB, Redis, Cassandra)
+# Note: nosqlmap is interactive; use run_command for full sessions
 RUN git clone --depth 1 https://github.com/codingo/NoSQLMap.git /opt/nosqlmap && \
     pip install --no-cache-dir -r /opt/nosqlmap/requirements.txt 2>/dev/null || true && \
     chmod +x /opt/nosqlmap/nosqlmap.py && \
@@ -114,7 +121,7 @@ RUN curl -sL -o /usr/share/wordlists/dns/subdomains-top1million-5000.txt \
 
 RUN curl -sL -o /usr/share/wordlists/dns/resolvers.txt \
     https://raw.githubusercontent.com/trickest/resolvers/main/resolvers.txt 2>/dev/null || \
-    echo "8.8.8.8\n8.8.4.4\n1.1.1.1\n9.9.9.9" > /usr/share/wordlists/dns/resolvers.txt
+    printf '8.8.8.8\n8.8.4.4\n1.1.1.1\n9.9.9.9\n' > /usr/share/wordlists/dns/resolvers.txt
 
 RUN curl -sL -o /usr/share/wordlists/passwords/rockyou-50k.txt \
     https://raw.githubusercontent.com/danielmiessler/SecLists/master/Passwords/Leaked-Databases/rockyou-75.txt 2>/dev/null || \

